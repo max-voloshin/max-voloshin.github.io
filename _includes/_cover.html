@@ -1,26 +1,23 @@
-<div class="blog-cover" style="background-image:url(/images/{{ site.inc.cover_image }});">
-
-    <section>
-        <div class="container">
-            <a href="/" class="brand">
-                <img src="/images/{{ site.inc.my_photo }}" alt="Max Voloshin" class="img-circle" style="max-height:90%;">
-            </a>
-            <br>
-            {% if site.inc.twitter %}
-            <a class="social" href="https://twitter.com/{{ site.inc.twitter }}" title="Follow on Twitter" target="_blank"><i class="icon icon-twitter"></i></a>
-            {% endif %}
-            {% if site.inc.github %}
-            <a class="social" href="https://github.com/{{ site.inc.github }}" title="Watch on Github" target="_blank"><i class="icon icon-github"></i></a>
-            {% endif %}
-            {% if site.inc.facebook %}
-            <a class="social" href="http://facebook.com/{{ site.inc.facebook }}" title="Like on Facebook" target="_blank"><i class="icon icon-facebook"></i></a>
-            {% endif %}
-            {% if site.inc.linkedin %}
-            <a class="social" href="{{ site.inc.linkedin }}" title="Connect on LinkedIn" target="_blank"><i class="icon icon-linkedin"></i></a>
-            {% endif %}
-            <a class="social" href="/feed.xml" title="RSS Feed">
-                <i class="icon icon-rss"></i>
-            </a>
-        </div>
-    </section>
+<div class="cover" style="background-image:url(/images/{{ site.inc.cover_image }})">
+    <a href="{{ site.inc.about_link }}" class="btn btn-outline">About me</a>
+    <a href="/" class="logo">
+        <img src="/images/{{ site.inc.my_photo }}" alt="Max Voloshin">
+    </a>
+    <div class="social-bucket">
+        <a class="social" href="https://twitter.com/{{ site.inc.twitter }}" title="Follow on Twitter" target="_blank">
+            <i class="icon icon-twitter"></i>
+        </a>
+        <a class="social" href="https://github.com/{{ site.inc.github }}" title="Watch on Github" target="_blank">
+            <i class="icon icon-github"></i>
+        </a>
+        <a class="social" href="http://facebook.com/{{ site.inc.facebook }}" title="Like on Facebook" target="_blank">
+            <i class="icon icon-facebook"></i>
+        </a>
+        <a class="social" href="{{ site.inc.linkedin }}" title="Connect on LinkedIn" target="_blank">
+            <i class="icon icon-linkedin"></i>
+        </a>
+        <a class="social" href="/feed.xml" title="RSS Feed">
+            <i class="icon icon-rss"></i>
+        </a>
+    </div>
 </div>
