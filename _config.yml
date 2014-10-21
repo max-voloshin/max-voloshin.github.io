@@ -3,13 +3,13 @@ inc:
   title:        "Max Voloshin"
   subtitle:     "Blog about software development"
   cover_image:  blog-cover.jpg
-  logo:         logo.png
+  logo:         mv.jpg
   my_photo:     mv.jpg
   
   # Company information
   company:      "Max Voloshin"
   url:          http://maxvoloshin.com/
-  # facebook:     sendtoinc
+  facebook:     MaxVoloshin
   twitter:      maxvoloshindev
   linkedin:     https://www.linkedin.com/pub/max-voloshin/95/aba/507
   # gplus:        '101183822199340201470'
