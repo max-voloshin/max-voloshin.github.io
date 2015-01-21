@@ -85,3 +85,13 @@ so sum of memory usage may be greater than 100%. In other words these values ans
 Unfortunately none of current tools give such information, otherwise let me know about it!
 
 Happy to discuss the proposed feature in comments.
+
+**UPD #1**: Qafoo profiler team:
+
+<blockquote class="twitter-tweet" data-conversation="none"><p><a href="https://twitter.com/maxvoloshindev">@maxvoloshindev</a> very interesting request and I wished to have this myself sometimes. Unfortunately we are not working on this atm.</p>&mdash; Benjamin Eberlei (@beberlei) <a href="https://twitter.com/beberlei/status/557646709430681601">January 20, 2015</a></blockquote>
+
+**UPD #2**: The author of [PHP Meminfo](https://github.com/BitOne/php-meminfo) extension:
+
+<blockquote class="twitter-tweet" data-conversation="none"><p><a href="https://twitter.com/maxvoloshindev">@maxvoloshindev</a> Your blog post seems like extracted from my head ;) I was missing the Java jmap tools, so I did a similar one on in PHP.</p>&mdash; Benoit Jacquemont (@BJacquemont) <a href="https://twitter.com/BJacquemont/status/557926441959292928">January 21, 2015</a></blockquote>
+
+I will digest this extension and give feedback about it soon.
