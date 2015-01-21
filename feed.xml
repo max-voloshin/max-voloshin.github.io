@@ -1,0 +1,574 @@
+<?xml version="1.0"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title></title>
+    <link>http://maxvoloshin.com</link>
+    <atom:link href="http://maxvoloshin.com/feed.xml" rel="self" type="application/rss+xml" />
+    <description></description>
+    <language>en-us</language>
+    <pubDate>Wed, 21 Jan 2015 16:52:29 +0000</pubDate>
+    <lastBuildDate>Wed, 21 Jan 2015 16:52:29 +0000</lastBuildDate>
+
+    
+    
+    <item>
+      <title>The destination of the allocated memory</title>
+      <link>http://maxvoloshin.com/2015/01/20/the-destination-of-the-allocated-memory/</link>
+      <pubDate>Tue, 20 Jan 2015 00:00:00 +0000</pubDate>
+      <author></author>
+      <guid>http://maxvoloshin.com/2015/01/20/the-destination-of-the-allocated-memory</guid>
+      <description>&lt;p&gt;&lt;strong&gt;Disclaimer&lt;/strong&gt;: &lt;em&gt;I am not an expert of PHP internals and I don’t know the chances of this feature to be implemented, but as any developer I am optimistic and open for dreams :)&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;2014 was a really lucky year for PHP developers worrying about performance of their applications. Two new profilers were launched: &lt;a href=&quot;https://blackfire.io/&quot;&gt;Blackfire by SensioLabs&lt;/a&gt; and &lt;a href=&quot;https://qafoolabs.com/&quot;&gt;Qafoo profiler&lt;/a&gt;. Both of them are really interesting inheritors of &lt;a href=&quot;http://pecl.php.net/package/xhprof&quot;&gt;Xhprof&lt;/a&gt; because they represent old-known facts in efficient manner and provide helpful feedback to developers.&lt;/p&gt;
+
+&lt;p&gt;In December Blackfire team introduced the brand new feature: tallying &lt;a href=&quot;http://blog.blackfire.io/performance-impact-of-the-php-garbage-collector.html&quot;&gt;the spent time of garbage collector&lt;/a&gt;. It gives the missed knowledge about unobvious activity of PHP to developers.&lt;/p&gt;
+
+&lt;p&gt;Today I want to make the public request of another missed feature: &lt;strong&gt;destination of the allocated memory&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;Existent profilers work in terms of a stack trace. This approach helps to discover problems with execution time of an application because of CPU and IO activities. But when you try to detect memory leaks it’s hard to do that in such terms. Developer receives information about a context (a function or a method) when memory is allocated, but there is no chance to see its destination. This understanding is crucial when you work with complex applications where memory is being allocated and freed many times (especially in long running CLI scripts). Thus a profiler gives you a lot of information that doesn’t help you to understand where the allocated memory is &lt;strong&gt;accumulated&lt;/strong&gt; during request.&lt;/p&gt;
+
+&lt;p&gt;When I work with PHP applications I assume that all possible destinations may be classified by three categories.&lt;/p&gt;
+
+&lt;h2 id=&quot;1_system_memory&quot;&gt;#1 System memory&lt;/h2&gt;
+
+&lt;p&gt;Memory is accumulated in the PHP core itself or its extensions. There is nothing to do with your application, so you should update PHP (every next version of PHP is more efficient) or update / tune / remove some of extensions.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Expected report format&lt;/strong&gt;:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;core – x&lt;sub&gt;0&lt;/sub&gt; Mb, y&lt;sub&gt;0&lt;/sub&gt;%&lt;/li&gt;
+
+&lt;li&gt;ext1 – x&lt;sub&gt;1&lt;/sub&gt; Mb, y&lt;sub&gt;1&lt;/sub&gt;%&lt;/li&gt;
+
+&lt;li&gt;ext2 – x&lt;sub&gt;2&lt;/sub&gt; Mb, y&lt;sub&gt;2&lt;/sub&gt;%&lt;/li&gt;
+
+&lt;li&gt;…&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;2_blocked_memory&quot;&gt;#2 Blocked memory&lt;/h2&gt;
+
+&lt;p&gt;Your application works properly, but some of data was removed from the application and wasn’t removed from memory because of cyclic dependencies. This issue may be resolved by garbage collector automatically or direct calling of &lt;code&gt;gc_collect_cycles&lt;/code&gt;. You should decide which approach is best for your application.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Expected report format&lt;/strong&gt;: blocked memory – x Mb, y%&lt;/p&gt;
+
+&lt;h2 id=&quot;3_busy_memory&quot;&gt;#3 Busy memory&lt;/h2&gt;
+
+&lt;p&gt;You should explore a report of your application’s memory usage for possible anomalies in terms of PHP entities (global variables / class fields / object properties). This part is the most valuable because it provides clear understanding about memory usage of the application by its components for the developer.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Expected report format&lt;/strong&gt;:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Global variables:
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;$_SERVER&lt;/code&gt; – x&lt;sub&gt;0&lt;/sub&gt; Mb, y&lt;sub&gt;0&lt;/sub&gt;%&lt;/li&gt;
+
+&lt;li&gt;&lt;code&gt;$_GET&lt;/code&gt; – x&lt;sub&gt;1&lt;/sub&gt; Mb, y&lt;sub&gt;0&lt;/sub&gt;%&lt;/li&gt;
+
+&lt;li&gt;…&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+
+&lt;li&gt;Class fields:
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;SomeClass::$property&lt;/code&gt; – k&lt;sub&gt;0&lt;/sub&gt; Mb, m&lt;sub&gt;0&lt;/sub&gt;%&lt;/li&gt;
+
+&lt;li&gt;&lt;code&gt;AnotherClass::$property&lt;/code&gt; – k&lt;sub&gt;1&lt;/sub&gt; Mb, m&lt;sub&gt;1&lt;/sub&gt;%&lt;/li&gt;
+
+&lt;li&gt;…&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+
+&lt;li&gt;Object properties:
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;Id0@SomeClass-&amp;gt;$property&lt;/code&gt; – z&lt;sub&gt;0&lt;/sub&gt; Mb, q&lt;sub&gt;0&lt;/sub&gt;%&lt;/li&gt;
+
+&lt;li&gt;&lt;code&gt;Id1@SomeClass-&amp;gt;$property&lt;/code&gt; – z&lt;sub&gt;1&lt;/sub&gt; Mb, q&lt;sub&gt;1&lt;/sub&gt;%&lt;/li&gt;
+
+&lt;li&gt;…&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;code&gt;Id0&lt;/code&gt; and &lt;code&gt;Id1&lt;/code&gt; are object’s identifiers for splitting information about objects of the same class. It would be awesome if &lt;code&gt;{Concrete}&lt;/code&gt; profiler will provide &lt;code&gt;{Concrete}ProfilerObjectInterface&lt;/code&gt; with &lt;code&gt;get{Concrete}ProfilerIdentifier&lt;/code&gt; method for defining custom identifier.&lt;/p&gt;
+
+&lt;p&gt;I realize that different variables may refer to the same memory (because of PHP object model), so sum of memory usage may be greater than 100%. In other words these values answer the question “How much memory will be busy if other variables are removed”.&lt;/p&gt;
+
+&lt;p&gt;Unfortunately none of current tools give such information, otherwise let me know about it!&lt;/p&gt;
+
+&lt;p&gt;Happy to discuss the proposed feature in comments.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;UPD #1&lt;/strong&gt;: Qafoo profiler team:&lt;/p&gt;
+&lt;blockquote class=&#39;twitter-tweet&#39; data-conversation=&#39;none&#39;&gt;&lt;p&gt;&lt;a href=&#39;https://twitter.com/maxvoloshindev&#39;&gt;@maxvoloshindev&lt;/a&gt; very interesting request and I wished to have this myself sometimes. Unfortunately we are not working on this atm.&lt;/p&gt;&amp;mdash; Benjamin Eberlei (@beberlei) &lt;a href=&#39;https://twitter.com/beberlei/status/557646709430681601&#39;&gt;January 20, 2015&lt;/a&gt;&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;UPD #2&lt;/strong&gt;: The author of &lt;a href=&quot;https://github.com/BitOne/php-meminfo&quot;&gt;PHP Meminfo&lt;/a&gt; extension:&lt;/p&gt;
+&lt;blockquote class=&#39;twitter-tweet&#39; data-conversation=&#39;none&#39;&gt;&lt;p&gt;&lt;a href=&#39;https://twitter.com/maxvoloshindev&#39;&gt;@maxvoloshindev&lt;/a&gt; Your blog post seems like extracted from my head ;) I was missing the Java jmap tools, so I did a similar one on in PHP.&lt;/p&gt;&amp;mdash; Benoit Jacquemont (@BJacquemont) &lt;a href=&#39;https://twitter.com/BJacquemont/status/557926441959292928&#39;&gt;January 21, 2015&lt;/a&gt;&lt;/blockquote&gt;
+&lt;p&gt;I will digest this extension and give feedback about it soon.&lt;/p&gt;</description>
+    </item>
+    
+    
+    
+    <item>
+      <title>The Docker Book</title>
+      <link>http://maxvoloshin.com/2014/12/23/the-docker-book/</link>
+      <pubDate>Tue, 23 Dec 2014 00:00:00 +0000</pubDate>
+      <author></author>
+      <guid>http://maxvoloshin.com/2014/12/23/the-docker-book</guid>
+      <description>&lt;p&gt;I take an interest in the idea of building &lt;a href=&quot;http://en.wikipedia.org/wiki/Service-oriented_architecture&quot;&gt;SOA&lt;/a&gt; applications and the idea of &lt;a href=&quot;http://martinfowler.com/articles/microservices.html&quot;&gt;microservices&lt;/a&gt; for a long time. I share an opinion that SOA is the key to building scalable services from both technical and managerial (organize development process within big teams) aspects.&lt;/p&gt;
+
+&lt;p&gt;At the same time I have been sceptical about putting these ideas into action (they look like yet another dreams of developers and operations about happy future), because I had no idea how to develop and manage multitude services:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;how to solve problems of shared installation on one server?&lt;/li&gt;
+
+&lt;li&gt;how to do continuous integration / continuous delivery / monitoring / logging for these services in a one manner in order to keep rational development cost?&lt;/li&gt;
+
+&lt;li&gt;how to segregate of duties of developers and operations &lt;a href=&quot;http://en.wikipedia.org/wiki/DevOps&quot;&gt;properly&lt;/a&gt;?&lt;/li&gt;
+
+&lt;li&gt;how to make &lt;a href=&quot;http://12factor.net/&quot;&gt;The Twelve-Factor App&lt;/a&gt; real?&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;But we are living in a wonderful time, so future becomes true faster than we might expect :)&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://www.docker.com/&quot;&gt;Docker&lt;/a&gt; and its ecosystem gives answers for those questions via an implementation of idea of application’s &lt;a href=&quot;http://en.wikipedia.org/wiki/Operating_system%E2%80%93level_virtualization&quot;&gt;containers&lt;/a&gt; on top of &lt;a href=&quot;http://en.wikipedia.org/wiki/LXC&quot;&gt;LXC&lt;/a&gt; (for now).&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;http://www.dockerbook.com/&quot;&gt;The Docker Book&lt;/a&gt; gives you understanding what Docker is and how to use it in practice.&lt;/p&gt;
+
+&lt;p&gt;I recommend to read this book to everyone who deals with application’s backend on Linux servers. Note: it is important for better understanding to have access to Linux shell and try to execute commands from the book.&lt;/p&gt;
+
+&lt;p&gt;By chapters:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Chapters 1-4&lt;/strong&gt;. General chapters about Docker – useful to all.&lt;/li&gt;
+
+&lt;li&gt;&lt;strong&gt;Chapters 5-6&lt;/strong&gt;. You definitely should read these chapters if you are excited about what Docker is and you want to know how to build real services with it.&lt;/li&gt;
+
+&lt;li&gt;&lt;strong&gt;Chapter 7&lt;/strong&gt;. This chapter gives understanding how to solve orchestration and service discovery problems for containers, so it is mostly useful for operations than developers. Personally I was more interested in &lt;a href=&quot;http://kubernetes.io/&quot;&gt;Kubernetes&lt;/a&gt; (an open source orchestration system for Docker containers by Google, which is more relevant for usage in &lt;a href=&quot;http://www.owox.com/&quot;&gt;OWOX&lt;/a&gt; where we are building services with Google Cloud), but the mentioned chapter was interesting as initial point for me.&lt;/li&gt;
+
+&lt;li&gt;&lt;strong&gt;Chapter 8-9&lt;/strong&gt;. These chapters are relevant to you if you become a Docker hacker (in a good meaning).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;P.S.&lt;/strong&gt; If you feel that Docker is a &lt;a href=&quot;http://en.wikipedia.org/wiki/Silver_bullet&quot;&gt;silver bullet&lt;/a&gt; after reading – of course it is not. It is important to understand that Docker is just the concrete implementation of great ideas, but it is very powerful and popular now. I realize that &lt;a href=&quot;https://github.com/coreos/rocket&quot;&gt;other players&lt;/a&gt; may be involved in the game later, so there is no guarantee that Docker is the future. Tools are changing goals remain the same.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;P.P.S.&lt;/strong&gt; Thanks to &lt;a href=&quot;https://twitter.com/kartar&quot;&gt;James Turnbull&lt;/a&gt; for the excellent book and to &lt;a href=&quot;http://www.owox.com/&quot;&gt;OWOX&lt;/a&gt; for the given opportunity :)&lt;/p&gt;</description>
+    </item>
+    
+    
+    
+    <item>
+      <title>PHP &amp; Shell</title>
+      <link>http://maxvoloshin.com/2014/10/20/php-shell/</link>
+      <pubDate>Mon, 20 Oct 2014 00:00:00 +0000</pubDate>
+      <author></author>
+      <guid>http://maxvoloshin.com/2014/10/20/php-shell</guid>
+      <description>&lt;h2 id=&quot;why_php_developers_should_know_about_shell&quot;&gt;Why PHP developers should know about Shell?&lt;/h2&gt;
+
+&lt;p&gt;PHP developers deal with web development in most cases, where start point is a request to a web server. In spite of this we work with Shell:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;we use a terminal emulator: iTerm / Gnome Terminal / Konsole / xterm / etc&lt;/li&gt;
+
+&lt;li&gt;we log to a remote machine via SSH&lt;/li&gt;
+
+&lt;li&gt;we use such PHP function as &lt;code&gt;exec&lt;/code&gt; / &lt;code&gt;shell_exec&lt;/code&gt; / &lt;code&gt;system&lt;/code&gt; / &lt;code&gt;passthru&lt;/code&gt; / &lt;code&gt;proc_open&lt;/code&gt; or the backtick operator &lt;code&gt;`...`&lt;/code&gt;&lt;/li&gt;
+
+&lt;li&gt;we create a command line interface to the own application for ability to automate routine actions&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;In order to do these tasks more effectively, worth looking the details of an intersection of PHP and Shell.&lt;/p&gt;
+
+&lt;h2 id=&quot;what_is_shell&quot;&gt;What is Shell?&lt;/h2&gt;
+
+&lt;p&gt;Shell – an interpreter of the command line language which is determined by POSIX standard. There are couple of implementations:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Original Bourne Shell – &lt;strong&gt;sh&lt;/strong&gt; – used in most UNIX systems&lt;/li&gt;
+
+&lt;li&gt;Bourne Again Shell – &lt;strong&gt;bash&lt;/strong&gt; – used in most Linux systems&lt;/li&gt;
+
+&lt;li&gt;Debian Almquist Shell – &lt;strong&gt;dash&lt;/strong&gt; – used in Debian&lt;/li&gt;
+
+&lt;li&gt;Z Shell – &lt;strong&gt;zsh&lt;/strong&gt; – used by advanced users of command line :)&lt;/li&gt;
+
+&lt;li&gt;etc&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;running_a_php_application_from_shell&quot;&gt;Running a PHP application from Shell&lt;/h2&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//sapi.php&lt;/span&gt;
+&lt;span class=&#39;k&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nx&#39;&gt;PHP_SAPI&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;.&lt;/span&gt; &lt;span class=&#39;nx&#39;&gt;PHP_EOL&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;.&lt;/span&gt; &lt;span class=&#39;nb&#39;&gt;php_sapi_name&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;()&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;.&lt;/span&gt; &lt;span class=&#39;nx&#39;&gt;PHP_EOL&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;php sapi.php
+cli
+cli
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Thus we can determine running via Shell with the constant &lt;code&gt;PHP_SAPI&lt;/code&gt; or the function &lt;code&gt;php_sapi_name&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;shell_variables_and_environment_variables&quot;&gt;Shell variables and environment variables&lt;/h2&gt;
+
+&lt;p&gt;We can use variables in Shell:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ FOO&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$FOO&lt;/span&gt;
+value
+&lt;span class=&#39;nv&#39;&gt;$ BAR&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;&lt;span class=&#39;s1&#39;&gt;&amp;#39;another value&amp;#39;&lt;/span&gt;
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;$FOO and $BAR&amp;quot;&lt;/span&gt;
+value and another value
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;There is a special set of Shell variables: environment variables. Current environment variables are able to be shown with the tool &lt;code&gt;env&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;env
+&lt;span class=&#39;nv&#39;&gt;PATH&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;/usr/local/bin:/usr/bin:/bin
+&lt;span class=&#39;nv&#39;&gt;HOME&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;/Users/maxvoloshin
+&lt;span class=&#39;nv&#39;&gt;USER&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;maxvoloshin
+&lt;span class=&#39;nv&#39;&gt;SHELL&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;/bin/zsh
+&lt;span class=&#39;nv&#39;&gt;PWD&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;/Users/maxvoloshin
+&lt;span class=&#39;nv&#39;&gt;_&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;/usr/bin/env
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;If we want to transform a variable to an environment variable we should use the command &lt;code&gt;export&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ FOO&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;export &lt;/span&gt;FOO
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;env
+...
+&lt;span class=&#39;nv&#39;&gt;FOO&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;With each Shell execution of commands the new Shell process is created, which copy environment variables of the parent process. Exclusively for a new process it is possible to pass a special value of an environment variable or even to pass a new variable.&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ FOO&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value
+&lt;span class=&#39;nv&#39;&gt;$ FOO&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;new &lt;span class=&#39;nv&#39;&gt;BAZ&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value env
+...
+&lt;span class=&#39;nv&#39;&gt;FOO&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;new
+&lt;span class=&#39;nv&#39;&gt;BAZ&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$FOO&lt;/span&gt;
+value
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$BAZ&lt;/span&gt;
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Take into account that in the current context the value of variable &lt;code&gt;FOO&lt;/code&gt; is not changed and variable &lt;code&gt;BAZ&lt;/code&gt; is not created (command &lt;code&gt;echo $BAZ&lt;/code&gt; shows nothing).&lt;/p&gt;
+
+&lt;h2 id=&quot;passing_parameters_from_shell_to_a_php_application&quot;&gt;Passing parameters from Shell to a PHP application&lt;/h2&gt;
+
+&lt;h3 id=&quot;usage_of_environment_variables&quot;&gt;Usage of environment variables&lt;/h3&gt;
+
+&lt;p&gt;Values of environment variables are available in a PHP application via the function &lt;code&gt;getenv&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//getenv.php&lt;/span&gt;
+&lt;span class=&#39;k&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nb&#39;&gt;getenv&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;s1&#39;&gt;&amp;#39;FOO&amp;#39;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;.&lt;/span&gt; &lt;span class=&#39;nx&#39;&gt;PHP_EOL&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Look in Shell:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ FOO&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value php getenv.php
+value
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Depending on the PHP configuration &lt;code&gt;request_order&lt;/code&gt; and &lt;code&gt;variables_order&lt;/code&gt;, environment variables are available in superglobal variables &lt;code&gt;$_SERVER&lt;/code&gt;, &lt;code&gt;$_REQUEST&lt;/code&gt; and &lt;code&gt;$_ENV&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h3 id=&quot;usage_of_command_arguments&quot;&gt;Usage of command arguments&lt;/h3&gt;
+
+&lt;p&gt;Receiving information about command arguments is possible via &lt;code&gt;$_SERVER[&amp;#39;argc&amp;#39;]&lt;/code&gt; and &lt;code&gt;$_SERVER[&amp;#39;argv&amp;#39;]&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//argc_argv.php&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;print_r&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nv&#39;&gt;$_SERVER&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;s1&#39;&gt;&amp;#39;argc&amp;#39;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;]);&lt;/span&gt;
+&lt;span class=&#39;k&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nx&#39;&gt;PHP_EOL&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;;&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;print_r&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nv&#39;&gt;$_SERVER&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;s1&#39;&gt;&amp;#39;argv&amp;#39;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;]);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Usage:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;php argc_argv.php some -arguments --here
+4
+Array
+&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;0&lt;span class=&#39;o&#39;&gt;]&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;&amp;gt; argc_argv.php
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;1&lt;span class=&#39;o&#39;&gt;]&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;&amp;gt; some
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;2&lt;span class=&#39;o&#39;&gt;]&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;&amp;gt; -arguments
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;3&lt;span class=&#39;o&#39;&gt;]&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;&amp;gt; --here
+&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Depending on the PHP configuration &lt;code&gt;register_argc_argv&lt;/code&gt;, this information are available in superglobal variables &lt;code&gt;$argc&lt;/code&gt; and &lt;code&gt;$argv&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;Alternative approach is usage of the function &lt;code&gt;getopt&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//getopt.php&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;var_dump&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;getopt&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;s1&#39;&gt;&amp;#39;ab:c::&amp;#39;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;k&#39;&gt;array&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;s1&#39;&gt;&amp;#39;foo&amp;#39;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;s1&#39;&gt;&amp;#39;bar:&amp;#39;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;s1&#39;&gt;&amp;#39;baz::&amp;#39;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;)));&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Usage:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;php getopt.php -a -b&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value -c -c&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value --foo --bar&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value1 --bar&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;value2 --baz
+array&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;6&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;{&lt;/span&gt;
+  &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;a&amp;quot;&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+  bool&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;false&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt;
+  &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;b&amp;quot;&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+  string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;5&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;value&amp;quot;&lt;/span&gt;
+  &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;c&amp;quot;&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+  array&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;2&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;{&lt;/span&gt;
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;0&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+    bool&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;false&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt;
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;1&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+    string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;5&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;value&amp;quot;&lt;/span&gt;
+  &lt;span class=&#39;o&#39;&gt;}&lt;/span&gt;
+  &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;foo&amp;quot;&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+  bool&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;false&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt;
+  &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;bar&amp;quot;&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+  array&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;2&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;{&lt;/span&gt;
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;0&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+    string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;6&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;value1&amp;quot;&lt;/span&gt;
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;1&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+    string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;6&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;value2&amp;quot;&lt;/span&gt;
+  &lt;span class=&#39;o&#39;&gt;}&lt;/span&gt;
+  &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;baz&amp;quot;&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;]=&lt;/span&gt;&amp;gt;
+  bool&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;false&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt;
+&lt;span class=&#39;o&#39;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h2 id=&quot;running_a_php_application_in_posix_style&quot;&gt;Running a PHP application in POSIX style&lt;/h2&gt;
+
+&lt;p&gt;Running a PHP applications as &lt;code&gt;php app.php&lt;/code&gt;, of course, is a working approach, but it can be done in a native style for the POSIX systems, similar to how we use utilities &lt;code&gt;cat&lt;/code&gt;, &lt;code&gt;ls&lt;/code&gt;, &lt;code&gt;cp&lt;/code&gt;, etc.&lt;/p&gt;
+
+&lt;p&gt;Let’s create the file &lt;code&gt;argv&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;touch argv
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;For the execution of such a program by the user, the file must have the appropriate owners and permissions. The tool &lt;code&gt;ls&lt;/code&gt; helps to receive that information:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;ls -l argv
+-rw-r--r--  maxvoloshin  staff  ...
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Look at parts of the output (from left to right):&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;-&lt;/code&gt; – regular file&lt;/li&gt;
+
+&lt;li&gt;&lt;code&gt;rw-&lt;/code&gt; – owner has permissions to read and write file&lt;/li&gt;
+
+&lt;li&gt;&lt;code&gt;r--&lt;/code&gt; – users of group have permissions to read file&lt;/li&gt;
+
+&lt;li&gt;&lt;code&gt;r--&lt;/code&gt; – all users have permissions to read file&lt;/li&gt;
+
+&lt;li&gt;&lt;code&gt;maxvoloshin&lt;/code&gt; – owner of file&lt;/li&gt;
+
+&lt;li&gt;&lt;code&gt;staff&lt;/code&gt; – group of file&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;For an execution this file by the user &lt;code&gt;maxvoloshin&lt;/code&gt; must do one of the following conditions:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;the user &lt;code&gt;maxvoloshin&lt;/code&gt; is owner of a file and an execution by owner is allowed&lt;/li&gt;
+
+&lt;li&gt;the user &lt;code&gt;maxvoloshin&lt;/code&gt; is included in the group &lt;code&gt;staff&lt;/code&gt; and an execution by a group is allowed&lt;/li&gt;
+
+&lt;li&gt;an execution by any user is allowed&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Permissions can be set by the tool &lt;code&gt;chmod&lt;/code&gt;. For example, to allow an execution of a file by owner:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;chmod u+x argv
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;ls -l argv
+-rwxr--r-- ...
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;The fourth character (&lt;code&gt;x&lt;/code&gt;) describes the permissions to execute the file by owner.&lt;/p&gt;
+
+&lt;p&gt;The file must contain “shebang line” with PHP call, then the file will be executed via PHP. “Shebang line” – the first line of the file that starts with &lt;code&gt;#!&lt;/code&gt; and contains call of program for execution of the file.&lt;/p&gt;
+
+&lt;p&gt;On different systems PHP interpreter can be located on different paths, so it is commonly used the tool &lt;code&gt;env&lt;/code&gt; for calling program by the name. The tool &lt;code&gt;env&lt;/code&gt; resolves the path to the program by environment variables.&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;x&#39;&gt;#!/usr/bin/env php&lt;/span&gt;
+&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//argv&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;print_r&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nv&#39;&gt;$_SERVER&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;s1&#39;&gt;&amp;#39;argv&amp;#39;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;]);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;The easiest way to execute the file in Shell – call it by an absolute or a relative path:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;/Users/maxvoloshin/argv
+Array
+&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;0&lt;span class=&#39;o&#39;&gt;]&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;&amp;gt; /Users/maxvoloshin/argv
+&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt;
+
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;./argv
+Array
+&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;0&lt;span class=&#39;o&#39;&gt;]&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;&amp;gt; ./argv
+&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;In most cases such way is not convenient for working with global tools, because it is necessary to keep in mind a path of an each tool. This task is solved by the environment variable &lt;code&gt;PATH&lt;/code&gt;.&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$PATH&lt;/span&gt;
+/usr/local/bin:/usr/bin:/bin
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Value of this variable contains paths to directories with tools (&lt;code&gt;:&lt;/code&gt; is used as a separator). Let’s add the current directory to the environment variable &lt;code&gt;PATH&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ PATH&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;&lt;span class=&#39;nv&#39;&gt;$PATH&lt;/span&gt;:&lt;span class=&#39;sb&#39;&gt;`&lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;pwd&lt;/span&gt;&lt;span class=&#39;sb&#39;&gt;`&lt;/span&gt;
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$PATH&lt;/span&gt;
+/usr/local/bin:/usr/bin:/bin:/Users/maxvoloshin
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;The tool &lt;code&gt;which&lt;/code&gt; shows the absolute path to the tool by name:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;which argv
+/Users/maxvoloshin/argv
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Thus we can execute an application by name:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;argv
+Array
+&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;
+    &lt;span class=&#39;o&#39;&gt;[&lt;/span&gt;0&lt;span class=&#39;o&#39;&gt;]&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt;&amp;gt; /Users/maxvoloshin/argv
+&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h2 id=&quot;streams_input_output_and_errors&quot;&gt;Streams: input, output and errors&lt;/h2&gt;
+
+&lt;p&gt;An each program in Shell can receive data from &lt;code&gt;STDIN&lt;/code&gt; (input stream) and send data to &lt;code&gt;STDOUT&lt;/code&gt; (output stream) and &lt;code&gt;STDERR&lt;/code&gt; (errors stream):&lt;/p&gt;
+&lt;div class=&#39;full&#39;&gt;&lt;img src=&#39;/images/shell-streams.png&#39; /&gt;&lt;/div&gt;
+&lt;p&gt;For working with those streams in PHP (CLI mode) we should use special constants:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;x&#39;&gt;STDIN  = fopen(&amp;#39;php://stdin&amp;#39;, &amp;#39;r&amp;#39;)&lt;/span&gt;
+&lt;span class=&#39;x&#39;&gt;STDOUT = fopen(&amp;#39;php://stdout&amp;#39;, &amp;#39;w&amp;#39;)&lt;/span&gt;
+&lt;span class=&#39;x&#39;&gt;STDERR = fopen(&amp;#39;php://stderr&amp;#39;, &amp;#39;w&amp;#39;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h3 id=&quot;usage_of_the_output_stream&quot;&gt;Usage of the output stream&lt;/h3&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;x&#39;&gt;#!/usr/bin/env php&lt;/span&gt;
+&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//stdout&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;fwrite&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;STDOUT&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;Content&lt;/span&gt;&lt;span class=&#39;se&#39;&gt;\n&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;);&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//echo &amp;quot;Content\n&amp;quot;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Usage:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout
+Content
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Additionally we can redirect the output to the file:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout &amp;gt; file
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;cat file
+Content
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Also we can append the output to the existing file:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout &amp;gt; file
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout &amp;gt;&amp;gt; file
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;cat file
+Content
+Content
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;&lt;strong&gt;ProTip&lt;/strong&gt;: &lt;em&gt;Do not implement those features in your application because its are implemented in Shell already.&lt;/em&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;usage_of_the_errors_stream&quot;&gt;Usage of the errors stream&lt;/h3&gt;
+
+&lt;p&gt;Taking into account that the output can be redirected, good practice is to split the output and errors. For example, we want notify user in case uncaught exception:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;x&#39;&gt;#!/usr/bin/env php&lt;/span&gt;
+&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//stdout_stderr&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;fwrite&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;STDOUT&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;Content&lt;/span&gt;&lt;span class=&#39;se&#39;&gt;\n&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;);&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;set_exception_handler&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;k&#39;&gt;function&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;Exception&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$e&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;p&#39;&gt;{&lt;/span&gt;
+   &lt;span class=&#39;nb&#39;&gt;fwrite&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;STDERR&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$e&lt;/span&gt;&lt;span class=&#39;o&#39;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&#39;na&#39;&gt;getMessage&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;());&lt;/span&gt;
+&lt;span class=&#39;p&#39;&gt;});&lt;/span&gt;
+&lt;span class=&#39;k&#39;&gt;throw&lt;/span&gt; &lt;span class=&#39;k&#39;&gt;new&lt;/span&gt; &lt;span class=&#39;nx&#39;&gt;Exception&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;s1&#39;&gt;&amp;#39;Error!&amp;#39;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Usage:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout_stderr
+Content
+Error!
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Looks like a simple output, but we can feel the difference if we use redirection:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout_stderr &amp;gt; file
+Error!
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;cat file
+Content
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;We can redirect errors to the file:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout_stderr 2&amp;gt; file
+Content
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;cat file
+Error!
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;We can redirect union of the output and errors to the file:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout_stderr &amp;gt; file 2&amp;gt;&lt;span class=&#39;p&#39;&gt;&amp;amp;&lt;/span&gt;1
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;cat file
+Content
+Error!
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;We can redirect the output and errors separately:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout_stderr &amp;gt; content 2&amp;gt; error
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;cat content
+Content
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;cat error
+Error!
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h3 id=&quot;usage_of_the_input_stream&quot;&gt;Usage of the input stream&lt;/h3&gt;
+
+&lt;p&gt;One of the approaches to pass a data to an application is usage of the input stream:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;x&#39;&gt;#!/usr/bin/env php&lt;/span&gt;
+&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//stdin&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;var_dump&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;trim&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;stream_get_contents&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;STDIN&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;)));&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Usage:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdin
+Hello from Shell
+&amp;lt;Ctrl+D&amp;gt;
+string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;16&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;Hello from Shell&amp;quot;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;After starting &lt;code&gt;stdin&lt;/code&gt;, Shell waits an input of contents. When the input is finished, the combination &lt;code&gt;Ctrl + D&lt;/code&gt; must be pressed.&lt;/p&gt;
+
+&lt;p&gt;There is ability to redirect a content of a file to the input stream:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout &amp;gt; file
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;cat file
+Content
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdin &amp;lt; file
+string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;7&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;Content&amp;quot;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;or an arbitrary text:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdin &lt;span class=&#39;o&#39;&gt;&amp;lt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;some string&amp;quot;&lt;/span&gt;
+string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;11&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;some string&amp;quot;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;It is important to realize that &lt;code&gt;stream_get_contents(STDIN)&lt;/code&gt; is a blocking call. If you want the application to run, regardless of the availability of data in the input stream, you can use the following approach:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;x&#39;&gt;#!/usr/bin/env php&lt;/span&gt;
+&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//non_blocking_stdin&lt;/span&gt;
+&lt;span class=&#39;nv&#39;&gt;$read&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt; &lt;span class=&#39;p&#39;&gt;[&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;STDIN&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;];&lt;/span&gt;
+&lt;span class=&#39;nv&#39;&gt;$write&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt; &lt;span class=&#39;k&#39;&gt;null&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;;&lt;/span&gt;
+&lt;span class=&#39;nv&#39;&gt;$except&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;=&lt;/span&gt; &lt;span class=&#39;k&#39;&gt;null&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;;&lt;/span&gt;
+&lt;span class=&#39;k&#39;&gt;if&lt;/span&gt; &lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;stream_select&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nv&#39;&gt;$read&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$write&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$except&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;mi&#39;&gt;0&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;o&#39;&gt;===&lt;/span&gt; &lt;span class=&#39;mi&#39;&gt;1&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;p&#39;&gt;{&lt;/span&gt;
+   &lt;span class=&#39;nb&#39;&gt;var_dump&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;trim&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;stream_get_contents&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;STDIN&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;)));&lt;/span&gt;
+&lt;span class=&#39;p&#39;&gt;}&lt;/span&gt; &lt;span class=&#39;k&#39;&gt;else&lt;/span&gt; &lt;span class=&#39;p&#39;&gt;{&lt;/span&gt;
+   &lt;span class=&#39;k&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;Data is not available in STDIN&lt;/span&gt;&lt;span class=&#39;se&#39;&gt;\n&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;;&lt;/span&gt;
+&lt;span class=&#39;p&#39;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Usage:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;non_blocking_stdin
+Data is not available in STDIN
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;non_blocking_stdin &lt;span class=&#39;o&#39;&gt;&amp;lt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;Hello&amp;quot;&lt;/span&gt;
+string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;5&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;Hello&amp;quot;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h2 id=&quot;composition_of_shell_programs&quot;&gt;Composition of Shell programs&lt;/h2&gt;
+
+&lt;p&gt;One of the beautiful opportunities of Shell is composition of programs. It helps to follow the principle “one program – one task” and build solutions of multiple problems with several tools at the same time.&lt;/p&gt;
+
+&lt;h3 id=&quot;sequential_execution&quot;&gt;Sequential execution&lt;/h3&gt;
+
+&lt;p&gt;Simplest approach of program’s composition is sequential execution:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout&lt;span class=&#39;p&#39;&gt;;&lt;/span&gt; stdout
+Content
+Content
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;It is execution of programs one after one.&lt;/p&gt;
+
+&lt;h3 id=&quot;determining_the_success_of_the_program&quot;&gt;Determining the success of the program&lt;/h3&gt;
+
+&lt;p&gt;It is often necessary that the program in the chain depended on the success of the previous program. The success of the execution of the program is determined by the return code: 0 - successful, otherwise - error.&lt;/p&gt;
+
+&lt;p&gt;Return code of PHP applications is argument of the function &lt;code&gt;exit&lt;/code&gt;. In Shell, the return code of the previous command is determined by using &lt;code&gt;$?&lt;/code&gt;.&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//ok.php&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;fwrite&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;STDOUT&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;OK&lt;/span&gt;&lt;span class=&#39;se&#39;&gt;\n&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;);&lt;/span&gt;
+&lt;span class=&#39;k&#39;&gt;exit&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;mi&#39;&gt;0&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;php&#39;&gt;&lt;span class=&#39;cp&#39;&gt;&amp;lt;?php&lt;/span&gt; &lt;span class=&#39;c1&#39;&gt;//fail.php&lt;/span&gt;
+&lt;span class=&#39;nb&#39;&gt;fwrite&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;nx&#39;&gt;STDERR&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;,&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;FAIL&lt;/span&gt;&lt;span class=&#39;se&#39;&gt;\n&lt;/span&gt;&lt;span class=&#39;s2&#39;&gt;&amp;quot;&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;);&lt;/span&gt;
+&lt;span class=&#39;k&#39;&gt;exit&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;(&lt;/span&gt;&lt;span class=&#39;mi&#39;&gt;1&lt;/span&gt;&lt;span class=&#39;p&#39;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Usage:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;php ok.php
+OK
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$?&lt;/span&gt;
+0
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;php fail.php
+FAIL
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$?&lt;/span&gt;
+1
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h3 id=&quot;conditional_execution&quot;&gt;Conditional execution&lt;/h3&gt;
+
+&lt;p&gt;Program execution in case of the success of previous is possible through operator &lt;code&gt;&amp;amp;&amp;amp;&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;php fail.php &lt;span class=&#39;o&#39;&gt;&amp;amp;&amp;amp;&lt;/span&gt; php ok.php
+FAIL
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$?&lt;/span&gt;
+1
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Program execution in case of the failure of previous is possible through operator &lt;code&gt;||&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;php ok.php &lt;span class=&#39;o&#39;&gt;||&lt;/span&gt; php fail.php
+OK
+&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;&lt;span class=&#39;nb&#39;&gt;echo&lt;/span&gt; &lt;span class=&#39;nv&#39;&gt;$?&lt;/span&gt;
+0
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h3 id=&quot;pipeline_execution&quot;&gt;Pipeline execution&lt;/h3&gt;
+
+&lt;p&gt;The most powerful (IMO) ability of composition of programs in Shell is pipeline execution. The essence of the pipeline that the data of the output stream of one program is sent to the input stream of another program. It is possible through operator &lt;code&gt;|&lt;/code&gt;:&lt;/p&gt;
+&lt;div class=&#39;highlight&#39;&gt;&lt;pre&gt;&lt;code class=&#39;sh&#39;&gt;&lt;span class=&#39;nv&#39;&gt;$ &lt;/span&gt;stdout &lt;span class=&#39;p&#39;&gt;|&lt;/span&gt; stdin &lt;span class=&#39;p&#39;&gt;|&lt;/span&gt; stdin &lt;span class=&#39;p&#39;&gt;|&lt;/span&gt; stdin
+string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;32&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;string(19) &amp;quot;&lt;/span&gt;string&lt;span class=&#39;o&#39;&gt;(&lt;/span&gt;7&lt;span class=&#39;o&#39;&gt;)&lt;/span&gt; &lt;span class=&#39;s2&#39;&gt;&amp;quot;Content&amp;quot;&amp;quot;&amp;quot;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;/h2&gt;
+
+&lt;p&gt;I hope that this post gives to you an initial idea how to work with PHP in Shell. If some aspect of this post is not clear enough, feel free to ask about it in comments.&lt;/p&gt;</description>
+    </item>
+    
+    
+    
+    
+
+  </channel> 
+</rss>
